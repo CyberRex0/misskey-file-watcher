@@ -53,6 +53,7 @@ async function updateFiles() {
     console.log(fileIds);
     lastFileId = res2[0].id;
     files.value.unshift(...res);
+    files.value = files.value.slice(0, 100);
 }
 
 async function checkConfig() {
