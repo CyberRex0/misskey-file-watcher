@@ -1,7 +1,7 @@
 <template>
     <div style="display: flex; flex-wrap: wrap; gap: 6px;">
         <div v-for="file in files" :key="file.id">
-            <img class="file" :src="file.thumbnailUrl"/>
+            <a :href="'https://' + config.host + '/admin/file/' + file.id"><img class="file" :src="file.thumbnailUrl"/></a>
         </div>
     </div>
 </template>
