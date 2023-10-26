@@ -3,14 +3,17 @@
         <div class="control" style="margin: 4px;">
             <v-btn color="red" @click="resetConfig">reset</v-btn>
             <v-btn @click="reloadPage">reload</v-btn>
+            <v-btn @click="toggleUpdateSec">Update: {{ updateSec }}s</v-btn>
             <v-btn @click="helpDialog = true">help</v-btn>
+            <span>ver{{ packagejson.version }}</span>
+            <v-checkbox label="Ignore sensitive" v-model="ignoreSensitive"/>
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 6px;">
             <div class="container" v-for="file in files" :key="file.id">
-                <a :href="'https://' + config.host + '/admin/file/' + file.id" target="_blank"><img class="file" :src="file.thumbnailUrl" :style="{ filter: file.isSensitive ? (sensitiveState[file.id]!==false ? 'blur(10px)' : 'none') : 'none' }"/></a>
+                <a :href="'https://' + config.host + '/admin/file/' + file.id" target="_blank"><img class="file" :src="file.thumbnailUrl" :style="{ filter: !ignoreSensitive && file.isSensitive ? (sensitiveState[file.id]!==false ? 'blur(10px)' : 'none') : 'none' }"/></a>
                 <span v-if="file.isSensitive" class="file-text nsfw-label"><strong>Sensitive</strong></span>
-                <span v-if="file.isSensitive && (sensitiveState[file.id]===true || sensitiveState[file.id] === undefined)" class="file-text nsfw-toggle" @click="sensitiveState[file.id] = false"><v-icon icon="mdi-eye-off"/></span>
-                <span v-if="file.isSensitive && (sensitiveState[file.id]===false)" class="file-text nsfw-toggle" @click="sensitiveState[file.id] = true"><v-icon icon="mdi-eye-outline"/></span>
+                <span v-if="!ignoreSensitive && file.isSensitive && (sensitiveState[file.id]===true || sensitiveState[file.id] === undefined)" class="file-text nsfw-toggle" @click="sensitiveState[file.id] = false"><v-icon icon="mdi-eye-off"/></span>
+                <span v-if="!ignoreSensitive && file.isSensitive && (sensitiveState[file.id]===false)" class="file-text nsfw-toggle" @click="sensitiveState[file.id] = true"><v-icon icon="mdi-eye-outline"/></span>
             </div>
         </div>
     </div>
@@ -21,7 +24,12 @@
     >
       <v-card>
         <v-card-text>
-          画像をクリックするとドライブの詳細画面に飛びます
+            RESET: 認証情報をリセットします。<br>
+            RELOAD: ページを更新します。<br>
+            UPDATE: ◯S: ◯秒ごとに更新します。クリックすると更新するまでの秒数を変えられます。(5〜20秒、5秒間隔で変更可能)<br>
+            HELP: このダイアログを表示します。<br>
+            Ignore sensitive: すべての画像のセンシティブフラグを無視して表示します。<br>
+            画像をクリックするとドライブの詳細画面に飛びます。
         </v-card-text>
         <v-card-actions>
           <v-btn color="primary" block @click="helpDialog = false">OK</v-btn>
@@ -37,6 +45,7 @@ import { set as idbKVSet, del as idbKVDel } from 'idb-keyval';
 import { VBtn } from 'vuetify/components';
 import config from '../config';
 import mjs from 'misskey-js';
+import packagejson from '../../package.json';
 
 const files: Ref<mjs.entities.DriveFile[]> = ref([]);
 let refreshTimer: any = null;
@@ -45,26 +54,42 @@ const sensitiveState: Ref<{ [key: string]: boolean }> = ref({});
 
 let cnt = 0;
 
+const ignoreSensitive = ref(false);
 const helpDialog = ref(false);
+
+const updateSec = ref(10);
 
 onMounted(async () => {
     if(await checkConfig()) {
         await updateFiles();
-        refreshTimer = setInterval(updateFiles, 1000 * 10);
+        registTimer();
     }
 });
 
 onUnmounted(async () => {
-    if (refreshTimer !== null) clearInterval(refreshTimer);
+    unregistTimer();
 })
 
 function reloadPage() {
     location.reload();
 }
 
+function registTimer() { refreshTimer = setInterval(updateFiles, 1000 * updateSec.value); }
+function unregistTimer() { if (refreshTimer !== null) clearInterval(refreshTimer); }
+
+function toggleUpdateSec() {
+    let s = updateSec.value + 5;
+    if (s > 25) {
+        s = 5;
+    }
+    updateSec.value = s;
+    unregistTimer();
+    registTimer();
+}
+
 async function resetConfig() {
     if (window.confirm('認証情報をリセットします。よろしいですか？')) {
-        if (refreshTimer !== null) clearInterval(refreshTimer);
+        unregistTimer();
         await idbKVDel('host');
         await idbKVDel('token');
         reloadPage();
@@ -80,13 +105,13 @@ async function updateFiles() {
         body: JSON.stringify({ i: config.token, type: 'image/*', ...lastFileId!==null ? { sinceId: lastFileId }: {}}),
     });
     if (!req.ok) {
-        clearInterval(refreshTimer);
+        unregistTimer();
         alert('An error occured during fetching files');
         return;
     }
     const res: mjs.entities.DriveFile[] = await req.json();
     if (res.error) {
-        clearInterval(refreshTimer);
+        unregistTimer();
         alert(res.error.message);
         return;
     }
