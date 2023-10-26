@@ -7,8 +7,10 @@
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 6px;">
             <div class="container" v-for="file in files" :key="file.id">
-                <a :href="'https://' + config.host + '/admin/file/' + file.id" target="_blank"><img class="file" :src="file.thumbnailUrl"/></a>
+                <a :href="'https://' + config.host + '/admin/file/' + file.id" target="_blank"><img class="file" :src="file.thumbnailUrl" :style="{ filter: file.isSensitive ? (sensitiveState[file.id]!==false ? 'blur(10px)' : 'none') : 'none' }"/></a>
                 <span v-if="file.isSensitive" class="file-text nsfw-label"><strong>Sensitive</strong></span>
+                <span v-if="file.isSensitive && (sensitiveState[file.id]===true || sensitiveState[file.id] === undefined)" class="file-text nsfw-toggle" @click="sensitiveState[file.id] = false"><v-icon icon="mdi-eye-off"/></span>
+                <span v-if="file.isSensitive && (sensitiveState[file.id]===false)" class="file-text nsfw-toggle" @click="sensitiveState[file.id] = true"><v-icon icon="mdi-eye-outline"/></span>
             </div>
         </div>
     </div>
@@ -29,6 +31,7 @@
 </template>
 
 <script setup lang="ts">
+import '@mdi/font/css/materialdesignicons.css';
 import { onMounted, onUnmounted, ref, Ref } from 'vue';
 import { set as idbKVSet, del as idbKVDel } from 'idb-keyval';
 import { VBtn } from 'vuetify/components';
@@ -38,7 +41,7 @@ import mjs from 'misskey-js';
 const files: Ref<mjs.entities.DriveFile[]> = ref([]);
 let refreshTimer: any = null;
 let lastFileId: string | null = null;
-const fileIds: string[] = [];
+const sensitiveState: Ref<{ [key: string]: boolean }> = ref({});
 
 let cnt = 0;
 
@@ -145,8 +148,6 @@ async function checkConfig() {
 
 .file-text {
     position: absolute;
-    top: 2%;
-    left: 2%;
     padding: 2px;
 }
 
@@ -165,10 +166,20 @@ async function checkConfig() {
 }
 
 .nsfw-label {
+    top: 2%;
+    left: 2%;
     background-color: rgba(255, 0, 0, 0.9);
     border-radius: 2px;
     color: white;
     animation: redflash 1s infinite;
+}
+
+.nsfw-toggle {
+    top: 2%;
+    right: 2%;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 2px;
+    color: white;
 }
 
 .control * {

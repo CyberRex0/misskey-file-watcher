@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mdi/font": "^7.3.67",
     "@types/uuid": "^9.0.6",
     "idb-keyval": "^6.2.1",
     "misskey-js": "^0.0.16",
