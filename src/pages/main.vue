@@ -1,15 +1,31 @@
 <template>
-    <div style="margin: 4px;">
-        <div style="margin: 4px;">
+    <div style="margin: 4px">
+        <div class="control" style="margin: 4px;">
             <v-btn color="red" @click="resetConfig">reset</v-btn>
+            <v-btn @click="reloadPage">reload</v-btn>
+            <v-btn @click="helpDialog = true">help</v-btn>
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 6px;">
             <div class="container" v-for="file in files" :key="file.id">
-                <a :href="'https://' + config.host + '/admin/file/' + file.id"><img class="file" :src="file.thumbnailUrl"/></a>
-                <span v-if="file.isSensitive" class="file-text" style="background-color: rgba(255, 0, 0, 0.8); border-radius: 2px; color: white;"><strong>NSFW</strong></span>
+                <a :href="'https://' + config.host + '/admin/file/' + file.id" target="_blank"><img class="file" :src="file.thumbnailUrl"/></a>
+                <span v-if="file.isSensitive" class="file-text nsfw-label"><strong>Sensitive</strong></span>
             </div>
         </div>
     </div>
+
+    <v-dialog
+      v-model="helpDialog"
+      width="auto"
+    >
+      <v-card>
+        <v-card-text>
+          画像をクリックするとドライブの詳細画面に飛びます
+        </v-card-text>
+        <v-card-actions>
+          <v-btn color="primary" block @click="helpDialog = false">OK</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -26,6 +42,8 @@ const fileIds: string[] = [];
 
 let cnt = 0;
 
+const helpDialog = ref(false);
+
 onMounted(async () => {
     if(await checkConfig()) {
         await updateFiles();
@@ -37,12 +55,16 @@ onUnmounted(async () => {
     if (refreshTimer !== null) clearInterval(refreshTimer);
 })
 
+function reloadPage() {
+    location.reload();
+}
+
 async function resetConfig() {
     if (window.confirm('認証情報をリセットします。よろしいですか？')) {
         if (refreshTimer !== null) clearInterval(refreshTimer);
         await idbKVDel('host');
         await idbKVDel('token');
-        location.reload();
+        reloadPage();
     }
 }
 
@@ -78,7 +100,7 @@ async function updateFiles() {
         lastFileId = res[0].id;
     }
     files.value.unshift(...res);
-    files.value = files.value.slice(0, 100);
+    files.value = files.value.slice(0, 50);
     cnt++;
 }
 
@@ -126,5 +148,43 @@ async function checkConfig() {
     top: 2%;
     left: 2%;
     padding: 2px;
+}
+
+@media screen and (max-width: 500px) {
+    .container {
+        position: relative;
+        width: 150px;
+        height: 150px;
+    }
+
+    .file {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+    }
+}
+
+.nsfw-label {
+    background-color: rgba(255, 0, 0, 0.9);
+    border-radius: 2px;
+    color: white;
+    animation: redflash 1s infinite;
+}
+
+.control * {
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+@keyframes redflash {
+    0% {
+        /*background-color: rgba(255, 0, 0, 0.9);*/
+        opacity: 1;
+    }
+
+    50% {
+        /*background-color: rgba(255, 0, 0, 0.4);*/
+        opacity: 0.35;
+    }
 }
 </style>
